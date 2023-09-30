@@ -5,6 +5,7 @@ Import-Module PureStoragePowerShellSDK2
 $Credential = Get-Credential -UserName "anocentino" -Message 'Enter your credential information...'
 $FlashArray = Connect-Pfa2Array –EndPoint sn1-m70-f06-33.puretec.purestorage.com -Credential $Credential -IgnoreCertificateError
 
+
 ##Demo 1 - Gather information and performance data about volumes 
 Get-Command -Module PureStoragePowerShellSDK2
 
@@ -27,33 +28,34 @@ Get-Pfa2Volume -Array $FlashArray | Measure-Object
 
 #Let's get the top 10 volumes in terms of TotalPhysical capacity using sorting and filtering via PowerShell
 Get-Pfa2Volume -Array $FlashArray 
-    | Select-Object Name, Space.TotalPhysical -ExpandProperty Space
+    | Select-Object Name -ExpandProperty Space
     | Sort-Object -Property TotalPhysical -Descending -Top 10 
     | Format-Table
 
 
 #Now, let's push the heavy lifting into the array, sorting by total_physical and limiting to the top 10, 
 # with Sort and Limit the hard work happens on the server side and the results are returned locally
-Get-Pfa2Volume -Array $FlashArray -Sort "space.total_physical-" -Limit 10 -Verbose
-    | Select-Object Name, Space.TotalPhysical -ExpandProperty Space 
+# Where did I find that sort property...
+# https://support.purestorage.com/FlashArray/PurityFA/Purity_FA_REST_API/FlashArray_REST_API_Reference_Guides 
+# total_physical is The total physical space occupied by system, shared space, volume, and snapshot data. Measured in bytes.
+Get-Pfa2Volume -Array $FlashArray -Sort "space.total_physical-" -Limit 10
+    | Select-Object Name -ExpandProperty Space 
     | Format-Table
 
 
 #Let's see how long each method takes to get the data from the array, first let's look at sorting and filtering via PowerShell
 Measure-Command {
     Get-Pfa2Volume -Array $FlashArray 
-    | Select-Object Name, Space.TotalPhysical -ExpandProperty Space
+    | Select-Object Name -ExpandProperty Space
     | Sort-Object -Property TotalPhysical -Descending -Top 10 
     | Format-Table
 } | Select-Object TotalMilliseconds
 
 
 #Next, let's see how long it takes to sort and filter on the array and return just the results we want
-#Where did I find that sort property...https://support.purestorage.com/FlashArray/PurityFA/Purity_FA_REST_API/FlashArray_REST_API_Reference_Guides 
-# total_physical is The total physical space occupied by system, shared space, volume, and snapshot data. Measured in bytes.
 Measure-Command {
-    Get-Pfa2Volume -Array $FlashArray -Sort "space.total_physical-" -Limit 10 
-    | Select-Object Name, Space.TotalPhysical -ExpandProperty Space 
+    Get-Pfa2Volume -Array $FlashArray -Sort "space.total_physical-" -Limit 10
+    | Select-Object Name -ExpandProperty Space 
     | Format-Table
 } | Select-Object TotalMilliseconds
 
@@ -88,30 +90,29 @@ Start-Job -ScriptBlock {
 }
 
 
-#Find the hot volume on reads
+#Finding hot volumes in a FlashArray
 Get-Pfa2VolumePerformance -Array $FlashArray | Get-Member
 
 
 #Using our sorting method from earlier, I'm going to look for somethign that's generating a lot of reads, 
 #and limit the output to the top 10
-Get-Pfa2VolumePerformance -Array $FlashArray -Sort 'reads_per_sec-' -Limit 10 
-    | Select-Object Name, Time, ReadsPerSec, BytesPerRead
+Get-Pfa2VolumePerformance -Array $FlashArray -Sort 'reads_per_sec-' -Limit 10 | 
+    Select-Object Name, Time, ReadsPerSec, BytesPerRead
 
 
 #But what if I want to look for total IOPs, we'll I have to calculate that locally.
 $VolumePerformance = Get-Pfa2VolumePerformance -Array $FlashArray
-$VolumePerformance | Select-Object Name, ReadsPerSec, WritesPerSec, @{label="IOsPerSec";expression={$_.ReadsPerSec + $_.WritesPerSec}} 
-    | Sort-Object -Property IOsPerSec -Descending 
-    | Select-Object -First 10
+$VolumePerformance | Select-Object Name, ReadsPerSec, WritesPerSec, @{label="IOsPerSec";expression={$_.ReadsPerSec + $_.WritesPerSec}} | 
+    Sort-Object -Property IOsPerSec -Descending | 
+    Select-Object -First 10
 
 
 #Let's learn how to look back in time...
 
 #What's the default resolution for this sample...in other words how far back am I looking in the data available?
 #The default resolution on storage objects like volumes is 30 seconds window starting when the cmdlet is run
-Get-Pfa2VolumePerformance -Array $FlashArray -Sort 'reads_per_sec-' -Limit 10 
-| Select-Object Name, Time, ReadsPerSec, BytesPerRead
-
+Get-Pfa2VolumePerformance -Array $FlashArray -Sort 'reads_per_sec-' -Limit 10 | 
+    Select-Object Name, Time, ReadsPerSec, BytesPerRead
 
 
 #Let's look at 48 hours ago over a one day window
@@ -120,13 +121,13 @@ $EndTime = $Today.AddDays(-2)
 $StartTime = $Today.AddDays(-3)
 
 #Let's find the to 10 highest read volumes 2 days ago.
-Get-Pfa2VolumePerformance -Array $FlashArray -Sort 'reads_per_sec-' -Limit 10 -StartTime $StartTime -EndTime $EndTime -resolution 1800000
-| Select-Object Name, Time, ReadsPerSec
+Get-Pfa2VolumePerformance -Array $FlashArray -Sort 'reads_per_sec-' -Limit 10 -StartTime $StartTime -EndTime $EndTime -resolution 1800000 |
+    Select-Object Name, Time, ReadsPerSec
 
 
 #Let's find the to 10 highest read volumes 2 days ago, where they have the string aen in the name.
-Get-Pfa2VolumePerformance -Array $FlashArray -Filter "name='*aen*'" -Sort 'reads_per_sec-' -Limit 10 -StartTime $StartTime -EndTime $EndTime -resolution 1800000
-| Select-Object Name, Time, ReadsPerSec
+Get-Pfa2VolumePerformance -Array $FlashArray -Filter "name='*aen-sql-22-a*'" -Sort 'reads_per_sec-' -Limit 10 -StartTime $StartTime -EndTime $EndTime -resolution 1800000 | 
+    Select-Object Name, Time, ReadsPerSec
 
 
 #Take aways
@@ -138,9 +139,10 @@ Get-Pfa2VolumePerformance -Array $FlashArray -Filter "name='*aen*'" -Sort 'reads
 
 #Categorize, search and manage your FlashArray resources efficiently
 #Group a set of volumes with tags and get and performance metrics based on those tags
-
 Get-Pfa2Volume -Array $FlashArray -Filter "name='*aen-sql-22*'" | Select-Object Name 
 
+
+#Let's get a set of volumes using our filtering technique
 $VolumesSqlA = Get-Pfa2Volume -Array $FlashArray -Filter "name='*aen-sql-22-a*'" | Select-Object Name -ExpandProperty Name
 $VolumesSqlB = Get-Pfa2Volume -Array $FlashArray -Filter "name='*aen-sql-22-b*'" | Select-Object Name -ExpandProperty Name
 
@@ -153,36 +155,54 @@ $TagValueSqlA = 'aen-sql-22-a'
 $TagValueSqlB = 'aen-sql-22-b'
 
 
+#Assign the tags keys and values to the sets of volumes we're working with 
 Set-Pfa2VolumeTagBatch -Array $FlashArray -TagNamespace $TagNamespace -ResourceNames $VolumesSqlA -TagKey $TagKey -TagValue $TagValueSqlA
 Set-Pfa2VolumeTagBatch -Array $FlashArray -TagNamespace $TagNamespace -ResourceNames $VolumesSqlB -TagKey $TagKey -TagValue $TagValueSqlB
 
+
+#Let's get all the volumes that have the Key = SqlInstance
 Get-Pfa2VolumeTag -Array $FlashArray -Namespaces $TagNamespace -Filter "Key='SqlInstance'"
 
+
+#Let's get all the volumes that have the Value of aen-sql-22-b
 Get-Pfa2VolumeTag -Array $FlashArray -Namespaces $TagNamespace -Filter "Value='aen-sql-22-b'"
 
+
+#And when we're done, we can clean up our tags
+Remove-Pfa2VolumeTag -Array $FlashArray -Namespaces $TagNamespace -Keys $TagKey -ResourceNames $VolumesSqlA
+Remove-Pfa2VolumeTag -Array $FlashArray -Namespaces $TagNamespace -Keys $TagKey -ResourceNames $VolumesSqlB
+
+
 ###Key take aways
-### 1. You can classify objects in the array to give your integrations more information about what's in the object...things like volumes and snapshots
+### 1. You can classify objects in the array to give your integrations more information about
+###    what's in the object...things like volumes and snapshots
 
 
 #Streamline snapshot management with powerful API-driven techniques
-
-#Find snapshots that are older than a specific date
-$Today = Get-Date -AsUTC
-$Created = $Today.AddDays(-30)
-$StringDate = Get-Date -Date $Created -Format "yyy-MM-ddTHH:mm:ssZ"
 
 
 #Let's look at the members available to us on the Volume Snapshot object
 Get-Pfa2VolumeSnapshot -Array $FlashArray | Get-Member
 
 
+#Find snapshots that are older than a specific date, we need to put the date into a format the API understands
+$Today = Get-Date -AsUTC
+$Created = $Today.AddDays(-30)
+$StringDate = Get-Date -Date $Created -Format "yyy-MM-ddTHH:mm:ssZ"
+
+
 #There's likely lots of snapshots, so let's use array side filtering to 
 #limit the set of objects and find snapshots older than a month on our array
-Get-Pfa2VolumeSnapshot -Array $FlashArray -Filter "created<'$StringDate'"
+Get-Pfa2VolumeSnapshot -Array $FlashArray -Filter "created<'$StringDate'" |
+    Sort-Object -Property created | 
+    Select-Object Name, Created
 
 
 #Similarly we can do this for protection groups 
-Get-Pfa2ProtectionGroupSnapshot -Array $FlashArray -Filter "created<'2023-01-01T00:00:00Z'"
+Get-Pfa2ProtectionGroupSnapshot -Array $FlashArray -Filter "created<'$StringDate'" | 
+    Sort-Object -Property created | 
+    Select-Object Name, Created
+
 
 #You can remove snapshots with these cmdlets
 #Remove-Pfa2VolumeSnapshot
@@ -190,6 +210,6 @@ Get-Pfa2ProtectionGroupSnapshot -Array $FlashArray -Filter "created<'2023-01-01T
 
 #Setup and deploy the OpenMetrics Exporter, enabling you to collect and analyze data from your Pure Storage arrays
 #https://github.com/PureStorage-OpenConnect/pure-fa-openmetrics-exporter
-cd ~/Documents/GitHub/pure-fa-openmetrics-exporter/examples/config/docker
+Set-Location ~/Documents/GitHub/pure-fa-openmetrics-exporter/examples/config/docker
 docker compose up --detach
 http://localhost:3000
