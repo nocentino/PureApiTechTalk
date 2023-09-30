@@ -92,33 +92,42 @@ Start-Job -ScriptBlock {
 Get-Pfa2VolumePerformance -Array $FlashArray | Get-Member
 
 
-#Using our sorting method from earlier, i'm going to look for somethign that's generating a lot of reads, and limit the output to the top 10
+#Using our sorting method from earlier, I'm going to look for somethign that's generating a lot of reads, 
+#and limit the output to the top 10
 Get-Pfa2VolumePerformance -Array $FlashArray -Sort 'reads_per_sec-' -Limit 10 
     | Select-Object Name, Time, ReadsPerSec, BytesPerRead
 
 
-
+#But what if I want to look for total IOPs, we'll I have to calculate that locally.
 $VolumePerformance = Get-Pfa2VolumePerformance -Array $FlashArray
 $VolumePerformance | Select-Object Name, ReadsPerSec, WritesPerSec, @{label="IOsPerSec";expression={$_.ReadsPerSec + $_.WritesPerSec}} 
     | Sort-Object -Property IOsPerSec -Descending 
     | Select-Object -First 10
 
 
-    
+#Let's learn how to look back in time...
+
 #What's the default resolution for this sample...in other words how far back am I looking in the data available?
-#The default resolution on storage objects like volumes is 30 seconds sample starting when the cmdlet is run
+#The default resolution on storage objects like volumes is 30 seconds window starting when the cmdlet is run
 Get-Pfa2VolumePerformance -Array $FlashArray -Sort 'reads_per_sec-' -Limit 10 
 | Select-Object Name, Time, ReadsPerSec, BytesPerRead
 
 
 
-#Let's look at 24 hours ago
-$Today = Get-Date
-$EndTime = $Today.AddDays(-1)
-$StartTime = $Today.AddDays(-1)
+#Let's look at 48 hours ago over a one day window
+$Today = Get-Date -AsUTC
+$EndTime = $Today.AddDays(-2)
+$StartTime = $Today.AddDays(-3)
 
-Get-Pfa2VolumePerformance -Array $FlashArray -Sort 'reads_per_sec-' -Limit 10 -StartTime $StartTime -EndTime $EndTime
-| Select-Object Name, Time, ReadsPerSec, BytesPerRead
+#Let's find the to 10 highest read volumes 2 days ago.
+Get-Pfa2VolumePerformance -Array $FlashArray -Sort 'reads_per_sec-' -Limit 10 -StartTime $StartTime -EndTime $EndTime -resolution 1800000
+| Select-Object Name, Time, ReadsPerSec
+
+
+#Let's find the to 10 highest read volumes 2 days ago, where they have the string aen in the name.
+Get-Pfa2VolumePerformance -Array $FlashArray -Filter "name='*aen*'" -Sort 'reads_per_sec-' -Limit 10 -StartTime $StartTime -EndTime $EndTime -resolution 1800000
+| Select-Object Name, Time, ReadsPerSec
+
 
 #Take aways
 # 1. You can easily find volume level performance information via PowerShell and also our API.
@@ -127,16 +136,58 @@ Get-Pfa2VolumePerformance -Array $FlashArray -Sort 'reads_per_sec-' -Limit 10 -S
 
 
 
-
 #Categorize, search and manage your FlashArray resources efficiently
 #Group a set of volumes with tags and get and performance metrics based on those tags
 
+Get-Pfa2Volume -Array $FlashArray -Filter "name='*aen-sql-22*'" | Select-Object Name 
+
+$VolumesSqlA = Get-Pfa2Volume -Array $FlashArray -Filter "name='*aen-sql-22-a*'" | Select-Object Name -ExpandProperty Name
+$VolumesSqlB = Get-Pfa2Volume -Array $FlashArray -Filter "name='*aen-sql-22-b*'" | Select-Object Name -ExpandProperty Name
+
+$VolumesSqlA
+$VolumesSqlB
+
+$TagNamespace = 'AnthonyNamespace'
+$TagKey = 'SqlInstance'
+$TagValueSqlA = 'aen-sql-22-a'
+$TagValueSqlB = 'aen-sql-22-b'
+
+
+Set-Pfa2VolumeTagBatch -Array $FlashArray -TagNamespace $TagNamespace -ResourceNames $VolumesSqlA -TagKey $TagKey -TagValue $TagValueSqlA
+Set-Pfa2VolumeTagBatch -Array $FlashArray -TagNamespace $TagNamespace -ResourceNames $VolumesSqlB -TagKey $TagKey -TagValue $TagValueSqlB
+
+Get-Pfa2VolumeTag -Array $FlashArray -Namespaces $TagNamespace -Filter "Key='SqlInstance'"
+
+Get-Pfa2VolumeTag -Array $FlashArray -Namespaces $TagNamespace -Filter "Value='aen-sql-22-b'"
+
+###Key take aways
+### 1. You can classify objects in the array to give your integrations more information about what's in the object...things like volumes and snapshots
 
 
 #Streamline snapshot management with powerful API-driven techniques
 
+#Find snapshots that are older than a specific date
+$Today = Get-Date -AsUTC
+$Created = $Today.AddDays(-30)
+$StringDate = Get-Date -Date $Created -Format "yyy-MM-ddTHH:mm:ssZ"
 
+
+#Let's look at the members available to us on the Volume Snapshot object
+Get-Pfa2VolumeSnapshot -Array $FlashArray | Get-Member
+
+
+#There's likely lots of snapshots, so let's use array side filtering to 
+#limit the set of objects and find snapshots older than a month on our array
+Get-Pfa2VolumeSnapshot -Array $FlashArray -Filter "created<'$StringDate'"
+
+
+#Similarly we can do this for protection groups 
+Get-Pfa2ProtectionGroupSnapshot -Array $FlashArray -Filter "created<'2023-01-01T00:00:00Z'"
+
+#You can remove snapshots with these cmdlets
+#Remove-Pfa2VolumeSnapshot
+#Remove-Pfa2ProtectionGroupSnapshot
 
 #Setup and deploy the OpenMetrics Exporter, enabling you to collect and analyze data from your Pure Storage arrays
-
+#https://github.com/PureStorage-OpenConnect/pure-fa-openmetrics-exporter
 
