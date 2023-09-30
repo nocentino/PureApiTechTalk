@@ -27,10 +27,10 @@ Get-Pfa2Volume -Array $FlashArray | Measure-Object
 
 
 #Let's get the top 10 volumes in terms of TotalPhysical capacity using sorting and filtering via PowerShell
-Get-Pfa2Volume -Array $FlashArray 
-    | Select-Object Name -ExpandProperty Space
-    | Sort-Object -Property TotalPhysical -Descending -Top 10 
-    | Format-Table
+Get-Pfa2Volume -Array $FlashArray | 
+    Select-Object Name -ExpandProperty Space | 
+    Sort-Object -Property TotalPhysical -Descending -Top 10 | 
+    Format-Table
 
 
 #Now, let's push the heavy lifting into the array, sorting by total_physical and limiting to the top 10, 
@@ -38,25 +38,25 @@ Get-Pfa2Volume -Array $FlashArray
 # Where did I find that sort property...
 # https://support.purestorage.com/FlashArray/PurityFA/Purity_FA_REST_API/FlashArray_REST_API_Reference_Guides 
 # total_physical is The total physical space occupied by system, shared space, volume, and snapshot data. Measured in bytes.
-Get-Pfa2Volume -Array $FlashArray -Sort "space.total_physical-" -Limit 10
-    | Select-Object Name -ExpandProperty Space 
-    | Format-Table
+Get-Pfa2Volume -Array $FlashArray -Sort "space.total_physical-" -Limit 10 | 
+    Select-Object Name -ExpandProperty Space | 
+    Format-Table
 
 
 #Let's see how long each method takes to get the data from the array, first let's look at sorting and filtering via PowerShell
 Measure-Command {
-    Get-Pfa2Volume -Array $FlashArray 
-    | Select-Object Name -ExpandProperty Space
-    | Sort-Object -Property TotalPhysical -Descending -Top 10 
-    | Format-Table
+    Get-Pfa2Volume -Array $FlashArray | 
+    Select-Object Name -ExpandProperty Space | 
+    Sort-Object -Property TotalPhysical -Descending -Top 10 | 
+    Format-Table
 } | Select-Object TotalMilliseconds
 
 
 #Next, let's see how long it takes to sort and filter on the array and return just the results we want
 Measure-Command {
-    Get-Pfa2Volume -Array $FlashArray -Sort "space.total_physical-" -Limit 10
-    | Select-Object Name -ExpandProperty Space 
-    | Format-Table
+    Get-Pfa2Volume -Array $FlashArray -Sort "space.total_physical-" -Limit 10 | 
+    Select-Object Name -ExpandProperty Space | 
+    Format-Table
 } | Select-Object TotalMilliseconds
 
 
@@ -102,7 +102,8 @@ Get-Pfa2VolumePerformance -Array $FlashArray -Sort 'reads_per_sec-' -Limit 10 |
 
 #But what if I want to look for total IOPs, we'll I have to calculate that locally.
 $VolumePerformance = Get-Pfa2VolumePerformance -Array $FlashArray
-$VolumePerformance | Select-Object Name, ReadsPerSec, WritesPerSec, @{label="IOsPerSec";expression={$_.ReadsPerSec + $_.WritesPerSec}} | 
+$VolumePerformance | 
+    Select-Object Name, ReadsPerSec, WritesPerSec, @{label="IOsPerSec";expression={$_.ReadsPerSec + $_.WritesPerSec}} | 
     Sort-Object -Property IOsPerSec -Descending | 
     Select-Object -First 10
 
@@ -139,12 +140,16 @@ Get-Pfa2VolumePerformance -Array $FlashArray -Filter "name='*aen-sql-22-a*'" -So
 
 #Categorize, search and manage your FlashArray resources efficiently
 #Group a set of volumes with tags and get and performance metrics based on those tags
-Get-Pfa2Volume -Array $FlashArray -Filter "name='*aen-sql-22*'" | Select-Object Name 
+Get-Pfa2Volume -Array $FlashArray -Filter "name='*aen-sql-22*'" | 
+    Select-Object Name 
 
 
 #Let's get a set of volumes using our filtering technique
-$VolumesSqlA = Get-Pfa2Volume -Array $FlashArray -Filter "name='*aen-sql-22-a*'" | Select-Object Name -ExpandProperty Name
-$VolumesSqlB = Get-Pfa2Volume -Array $FlashArray -Filter "name='*aen-sql-22-b*'" | Select-Object Name -ExpandProperty Name
+$VolumesSqlA = Get-Pfa2Volume -Array $FlashArray -Filter "name='*aen-sql-22-a*'" | 
+    Select-Object Name -ExpandProperty Name
+
+$VolumesSqlB = Get-Pfa2Volume -Array $FlashArray -Filter "name='*aen-sql-22-b*'" | 
+    Select-Object Name -ExpandProperty Name
 
 $VolumesSqlA
 $VolumesSqlB
@@ -176,6 +181,7 @@ Remove-Pfa2VolumeTag -Array $FlashArray -Namespaces $TagNamespace -Keys $TagKey 
 ###Key take aways
 ### 1. You can classify objects in the array to give your integrations more information about
 ###    what's in the object...things like volumes and snapshots
+### 2. What can you do with tags? Execute operations on sets of data, snapshots, clones, accounting, performance monitoring
 
 
 #Streamline snapshot management with powerful API-driven techniques
