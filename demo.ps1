@@ -190,4 +190,6 @@ Get-Pfa2ProtectionGroupSnapshot -Array $FlashArray -Filter "created<'2023-01-01T
 
 #Setup and deploy the OpenMetrics Exporter, enabling you to collect and analyze data from your Pure Storage arrays
 #https://github.com/PureStorage-OpenConnect/pure-fa-openmetrics-exporter
-
+cd ~/Documents/GitHub/pure-fa-openmetrics-exporter/examples/config/docker
+docker compose up --detach
+http://localhost:3000
