@@ -18,6 +18,10 @@ Get-Command -Module PureStoragePowerShellSDK2 | Where-Object { $_.Name -like "*p
 Get-Pfa2Volume -Array $FlashArray 
 
 
+#Under the hood, the PowerShell module is using the REST API to communicate to the array
+Get-Pfa2Volume -Array $FlashArray -Verbose -Name 'vvol-aen-sql-22-a-1-3d9acfdd-vg/Data-47094663'
+
+
 #Let's look at the attributes that are available to use
 Get-Pfa2Volume -Array $FlashArray  | Get-Member
 
@@ -27,9 +31,11 @@ Get-Pfa2Volume -Array $FlashArray | Measure-Object
 
 
 #Let's get the top 10 volumes in terms of TotalPhysical capacity using sorting and filtering via PowerShell
+#In PowerShell v7+ you can use the Sort-Object -Top 10 parameter, in PowerShell 5.1 you will use Select-Object -First 10
 Get-Pfa2Volume -Array $FlashArray | 
     Select-Object Name -ExpandProperty Space | 
-    Sort-Object -Property TotalPhysical -Descending -Top 10 | 
+    Sort-Object -Property TotalPhysical -Descending | 
+    Select-Object -First 10 |
     Format-Table
 
 
@@ -47,7 +53,8 @@ Get-Pfa2Volume -Array $FlashArray -Sort "space.total_physical-" -Limit 10 |
 Measure-Command {
     Get-Pfa2Volume -Array $FlashArray | 
     Select-Object Name -ExpandProperty Space | 
-    Sort-Object -Property TotalPhysical -Descending -Top 10 | 
+    Sort-Object -Property TotalPhysical -Descending | 
+    Select-Object -First 10 |
     Format-Table
 } | Select-Object TotalMilliseconds
 
@@ -61,7 +68,7 @@ Measure-Command {
 
 
 #Let's use filtering on a listing of volumes...first with PowerShell
-Get-Pfa2Volume -Array $FlashArray | Where-Object { $_.Name -like "*aen*" }
+Get-Pfa2Volume -Array $FlashArray | Where-Object { $_.Name -like "*aen*" } 
 
 
 #Now, let's push that into the array and sort in the api
@@ -94,7 +101,7 @@ Start-Job -ScriptBlock {
 Get-Pfa2VolumePerformance -Array $FlashArray | Get-Member
 
 
-#Using our sorting method from earlier, I'm going to look for somethign that's generating a lot of reads, 
+#Using our sorting method from earlier, I'm going to look for something that's generating a lot of reads, 
 #and limit the output to the top 10
 Get-Pfa2VolumePerformance -Array $FlashArray -Sort 'reads_per_sec-' -Limit 10 | 
     Select-Object Name, Time, ReadsPerSec, BytesPerRead
@@ -117,7 +124,9 @@ Get-Pfa2VolumePerformance -Array $FlashArray -Sort 'reads_per_sec-' -Limit 10 |
 
 
 #Let's look at 48 hours ago over a one day window
+#In PowerShell 7 you can use Get-Date -AsUTC, In PowerShell 5.1 you can use (Get-Date).ToUniversalTime()
 $Today = Get-Date -AsUTC
+$Today = (Get-Date).ToUniversalTime()
 $EndTime = $Today.AddDays(-2)
 $StartTime = $Today.AddDays(-3)
 
@@ -128,6 +137,7 @@ Get-Pfa2VolumePerformance -Array $FlashArray -Sort 'reads_per_sec-' -Limit 10 -S
 
 #Let's find the to 10 highest read volumes 2 days ago, where they have the string aen in the name.
 Get-Pfa2VolumePerformance -Array $FlashArray -Filter "name='*aen-sql-22-a*'" -Sort 'reads_per_sec-' -Limit 10 -StartTime $StartTime -EndTime $EndTime -resolution 1800000 | 
+    Sort-Object ReadsPerSec -Descending |
     Select-Object Name, Time, ReadsPerSec
 
 
@@ -192,7 +202,8 @@ Get-Pfa2VolumeSnapshot -Array $FlashArray | Get-Member
 
 
 #Find snapshots that are older than a specific date, we need to put the date into a format the API understands
-$Today = Get-Date -AsUTC
+#In PowerShell 7 you can use Get-Date -AsUTC, In PowerShell 5.1 you can use (Get-Date).ToUniversalTime()
+$Today = (Get-Date).ToUniversalTime()
 $Created = $Today.AddDays(-30)
 $StringDate = Get-Date -Date $Created -Format "yyy-MM-ddTHH:mm:ssZ"
 
@@ -200,13 +211,13 @@ $StringDate = Get-Date -Date $Created -Format "yyy-MM-ddTHH:mm:ssZ"
 #There's likely lots of snapshots, so let's use array side filtering to 
 #limit the set of objects and find snapshots older than a month on our array
 Get-Pfa2VolumeSnapshot -Array $FlashArray -Filter "created<'$StringDate'" |
-    Sort-Object -Property created | 
+    Sort-Object -Property Created | 
     Select-Object Name, Created
 
 
 #Similarly we can do this for protection groups 
 Get-Pfa2ProtectionGroupSnapshot -Array $FlashArray -Filter "created<'$StringDate'" | 
-    Sort-Object -Property created | 
+    Sort-Object -Property Created | 
     Select-Object Name, Created
 
 
@@ -216,6 +227,8 @@ Get-Pfa2ProtectionGroupSnapshot -Array $FlashArray -Filter "created<'$StringDate
 
 #Setup and deploy the OpenMetrics Exporter, enabling you to collect and analyze data from your Pure Storage arrays
 #https://github.com/PureStorage-OpenConnect/pure-fa-openmetrics-exporter
+#https://www.nocentino.com/posts/2022-12-20-monitoring-flasharray-with-openmetrics/
 Set-Location ~/Documents/GitHub/pure-fa-openmetrics-exporter/examples/config/docker
 docker compose up --detach
 http://localhost:3000
+docker compose down 
