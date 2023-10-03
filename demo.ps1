@@ -176,6 +176,8 @@ Get-Pfa2VolumeTag -Array $FlashArray -Namespaces $TagNamespace -Filter "Key='Sql
 
 
 #Now, let's perform an operation on each of the volumes that are in our set of volumes
+#Here FilterString is a comma seperated list of all of the Volumes in the variable $SqlVolumes.
+#In the form "name=('vol1,'vol2',vol3)" which is the proper Filter String format for the FlashArray API
 $FilterString = "name=('$($SqlVolumes.Resource.Name -join "','")')"
 $FilterString
 Get-Pfa2VolumeSpace -Array $FlashArray -Filter $FilterString
