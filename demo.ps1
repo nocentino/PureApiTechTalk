@@ -144,6 +144,7 @@ Get-Pfa2VolumePerformance -Array $FlashArray -Filter "name='*aen-sql-22-a*'" -So
 
 #Categorize, search and manage your FlashArray resources efficiently
 #Group a set of volumes with tags and get and performance metrics based on those tags
+#https://support.purestorage.com/?title=FlashArray/PurityFA/PurityFA_General_Administration/Tags_in_Purity_6.0_-_User%27s_Guide
 Get-Pfa2Volume -Array $FlashArray -Filter "name='*aen-sql-22*'" | 
     Select-Object Name 
 
@@ -169,9 +170,21 @@ Set-Pfa2VolumeTagBatch -Array $FlashArray -TagNamespace $TagNamespace -ResourceN
 Set-Pfa2VolumeTagBatch -Array $FlashArray -TagNamespace $TagNamespace -ResourceNames $VolumesSqlB -TagKey $TagKey -TagValue $TagValueSqlB
 
 
-#Let's get all the volumes that have the Key = SqlInstance
-Get-Pfa2VolumeTag -Array $FlashArray -Namespaces $TagNamespace -Filter "Key='SqlInstance'"
+#Let's get all the volumes that have the Key = SqlInstance...or in other words all the volumes associated with SQL Servers in our environment
+Get-Pfa2VolumeTag -Array $FlashArray -Namespaces $TagNamespace -Filter "Key='SqlInstance'" 
 
+
+
+#Now, let's perform an operation on each of the volumes that are in our set of volumes
+$FilterString = "name=('$($SqlVolumes.Resource.Name -join "','")')"
+$FilterString
+Get-Pfa2VolumeSpace -Array $FlashArray -Filter $FilterString
+
+
+#We really don't want to do this on the client side since each of these is a seperate API call. 
+foreach ($SqlVolume in $SqlVolumes){
+    Get-Pfa2VolumeSpace -Array $FlashArray -Name $SqlVolume.Resource.Name -Verbose
+}
 
 #And when we're done, we can clean up our tags
 Remove-Pfa2VolumeTag -Array $FlashArray -Namespaces $TagNamespace -Keys $TagKey -ResourceNames $VolumesSqlA
