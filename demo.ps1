@@ -1,3 +1,4 @@
+#Install-Module PureStoragePowerShellSDK2
 Import-Module PureStoragePowerShellSDK2
 
 
@@ -6,7 +7,7 @@ $Credential = Get-Credential -UserName "anocentino" -Message 'Enter your credent
 $FlashArray = Connect-Pfa2Array –EndPoint sn1-m70-f06-33.puretec.purestorage.com -Credential $Credential -IgnoreCertificateError
 
 
-##Demo 1 - Gather information and performance data about volumes 
+##Demo 1 - Gather information and performance data about volumes...2.24 has 378 cmdlets
 Get-Command -Module PureStoragePowerShellSDK2
 
 
@@ -14,16 +15,9 @@ Get-Command -Module PureStoragePowerShellSDK2
 Get-Command -Module PureStoragePowerShellSDK2 | Where-Object { $_.Name -like "*performance" } 
 
 
-#First, let's get a listing of all the volumes in the array
-Get-Pfa2Volume -Array $FlashArray 
-
-
 #Under the hood, the PowerShell module is using the REST API to communicate to the array
-Get-Pfa2Volume -Array $FlashArray -Verbose -Name 'vvol-aen-sql-22-a-1-3d9acfdd-vg/Data-47094663'
+Get-Pfa2Volume -Array $FlashArray -Name 'vvol-aen-sql-22-a-1-3d9acfdd-vg/Data-47094663' -Verbose 
 
-
-#Let's look at the attributes that are available to use
-Get-Pfa2Volume -Array $FlashArray  | Get-Member
 
 
 #Get a count of how many volumes are returned when we use this cmdlet...aka how many volumes are in our array
@@ -130,7 +124,7 @@ $Today = (Get-Date).ToUniversalTime()
 $EndTime = $Today.AddDays(-2)
 $StartTime = $Today.AddDays(-3)
 
-#Let's find the to 10 highest read volumes 2 days ago.
+#Let's find the to 10 highest read volumes 2 days ago. 1800000 is 30 minutes
 Get-Pfa2VolumePerformance -Array $FlashArray -Sort 'reads_per_sec-' -Limit 10 -StartTime $StartTime -EndTime $EndTime -resolution 1800000 |
     Select-Object Name, Time, ReadsPerSec
 
@@ -161,7 +155,7 @@ $VolumesSqlA = Get-Pfa2Volume -Array $FlashArray -Filter "name='*aen-sql-22-a*'"
 $VolumesSqlB = Get-Pfa2Volume -Array $FlashArray -Filter "name='*aen-sql-22-b*'" | 
     Select-Object Name -ExpandProperty Name
 
-$VolumesSqlA
+$VolumesSqlA 
 $VolumesSqlB
 
 $TagNamespace = 'AnthonyNamespace'
@@ -179,10 +173,6 @@ Set-Pfa2VolumeTagBatch -Array $FlashArray -TagNamespace $TagNamespace -ResourceN
 Get-Pfa2VolumeTag -Array $FlashArray -Namespaces $TagNamespace -Filter "Key='SqlInstance'"
 
 
-#Let's get all the volumes that have the Value of aen-sql-22-b
-Get-Pfa2VolumeTag -Array $FlashArray -Namespaces $TagNamespace -Filter "Value='aen-sql-22-b'"
-
-
 #And when we're done, we can clean up our tags
 Remove-Pfa2VolumeTag -Array $FlashArray -Namespaces $TagNamespace -Keys $TagKey -ResourceNames $VolumesSqlA
 Remove-Pfa2VolumeTag -Array $FlashArray -Namespaces $TagNamespace -Keys $TagKey -ResourceNames $VolumesSqlB
@@ -191,13 +181,14 @@ Remove-Pfa2VolumeTag -Array $FlashArray -Namespaces $TagNamespace -Keys $TagKey 
 ###Key take aways
 ### 1. You can classify objects in the array to give your integrations more information about
 ###    what's in the object...things like volumes and snapshots
-### 2. What can you do with tags? Execute operations on sets of data, snapshots, clones, accounting, performance monitoring
+### 2. What can you do with tags? Execute operations on sets of data, volumes, snapshots, clones, accounting, performance monitoring
 
 
 #Streamline snapshot management with powerful API-driven techniques
 
 
 #Let's look at the members available to us on the Volume Snapshot object
+#This can take a minute
 Get-Pfa2VolumeSnapshot -Array $FlashArray | Get-Member
 
 
