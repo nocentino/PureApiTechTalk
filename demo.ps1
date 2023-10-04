@@ -81,7 +81,8 @@ Measure-Command {
 } | Select-Object TotalMilliseconds
 
 #######################################################################################################################################
-###Key take away: use sort, limit and filter to scope your API calls to what you want to get. Will significantly increase performance
+#  Key take away: 
+#    Use sort, limit and filter to scope your API calls to what you want to get. Will significantly increase performance
 #######################################################################################################################################
 
 
@@ -146,7 +147,7 @@ Get-Pfa2VolumePerformance -Array $FlashArray -Limit 10 -StartTime $StartTime -En
 
 
 #######################################################################################################################################
-###Key take aways: 
+#  Key take aways: 
 #   1. You can easily find volume level performance information via PowerShell and also our API.
 #   2. Continue to use the filtering, sorting and limiting techniques discussed.
 #   3. Its not just Volumes, you can do this for other objects too, Hosts, HostGroups, Pods, Directories, and the Array as a whole
@@ -219,7 +220,7 @@ Remove-Pfa2VolumeTag -Array $FlashArray -Namespaces $TagNamespace -Keys $TagKey 
 
 
 #######################################################################################################################################
-###Key take aways: 
+#  Key take aways: 
 #   1. You can classify objects in the array to give your integrations more information about
 #      what's in the object...things like volumes and snapshots
 #   2. What can you do with tags? Execute operations on sets of data, volumes, snapshots, clones, accounting, performance monitoring
@@ -273,6 +274,6 @@ docker compose down
 
 
 #######################################################################################################################################
-###Key take away: 
+#  Key take away: 
 #   1. Leverage our API to give you cross-domain insight into your systems, applications and platforms.
 #######################################################################################################################################
