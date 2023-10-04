@@ -1,8 +1,6 @@
-# PureApiTechTalk
+# Unlocking the Full Potential of Pure Storage with APIs
 
 **This page is the sample code used in the Pure Storage Tech Talk Webinar**
-
-***"Unlocking the Full Potential of Pure Storage with APIs"***
 
 >Knowledge is power. If you want to get more from modern data, Pure’s Tech Talk series can supercharge your storage savvy. Led by Pure solution experts and industry guests, these lively discussions explore features, live demos, and best practices to address the use cases you care most about. You’ll come away informed, inspired—and ready to unleash the full power of modern data for your business. Uncomplicated Data Storage, Forever.
 
