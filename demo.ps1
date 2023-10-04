@@ -7,7 +7,9 @@ $Credential = Get-Credential -UserName "anocentino" -Message 'Enter your credent
 $FlashArray = Connect-Pfa2Array –EndPoint sn1-m70-f06-33.puretec.purestorage.com -Credential $Credential -IgnoreCertificateError
 
 
-##Demo 1 - Gather information and performance data about volumes...2.24 has 378 cmdlets
+#######################################################################################################################################
+###Demo 1: Connecting to your FlashArray API and using sort, limit and filter to scope your API calls to the information that you want
+#######################################################################################################################################
 Get-Command -Module PureStoragePowerShellSDK2
 
 
@@ -19,7 +21,7 @@ Get-Command -Module PureStoragePowerShellSDK2 | Where-Object { $_.Name -like "*p
 Get-Pfa2Volume -Array $FlashArray -Name 'vvol-aen-sql-22-a-1-3d9acfdd-vg/Data-47094663' -Verbose 
 
 
-
+#Let's talk about performance when working with large sets of objects
 #Get a count of how many volumes are returned when we use this cmdlet...aka how many volumes are in our array
 Get-Pfa2Volume -Array $FlashArray | Measure-Object 
 
@@ -65,7 +67,7 @@ Measure-Command {
 Get-Pfa2Volume -Array $FlashArray | Where-Object { $_.Name -like "*aen*" } 
 
 
-#Now, let's push that into the array and sort in the api
+#Now, let's push that into the array and sort in the API and use a filter to limit the amount of data returned to the client
 Get-Pfa2Volume -Array $FlashArray -Filter "name='*aen*'" 
 
 
@@ -78,10 +80,14 @@ Measure-Command {
     Get-Pfa2Volume -Array $FlashArray -Filter "name='*aen*'" 
 } | Select-Object TotalMilliseconds
 
-###Take aways, use sort, limit and filter to scope your API calls to what you want to get. Will significantly increase performance
+#######################################################################################################################################
+###Key take away: use sort, limit and filter to scope your API calls to what you want to get. Will significantly increase performance
+#######################################################################################################################################
 
 
-#Demo 2 - Identify and address bottlenecks by pinpointing hot volumes
+#######################################################################################################################################
+###Demo 2 - Identify and address bottlenecks by pinpointing hot volumes using the FlashArray API
+#######################################################################################################################################
 #Kick off a backup to generate some read workload
 Start-Job -ScriptBlock {
     $username = "sa"
@@ -97,6 +103,10 @@ Get-Pfa2VolumePerformance -Array $FlashArray | Get-Member
 
 #Using our sorting method from earlier, I'm going to look for something that's generating a lot of reads, 
 #and limit the output to the top 10
+#Get the Sort field from the API Documentation, the PowerShell object is camelcase, the array API response property has a different format
+#ReadsPerSec is that PowerShell property, reads_per_sec is the array API response property. 
+#Notice the underscores are removed from the PowerShell propery and the API response property is lower case and is case sensitive.
+#Sorting defaults to ascending, add a - to sort descending
 Get-Pfa2VolumePerformance -Array $FlashArray -Sort 'reads_per_sec-' -Limit 10 | 
     Select-Object Name, Time, ReadsPerSec, BytesPerRead
 
@@ -112,17 +122,17 @@ $VolumePerformance |
 #Let's learn how to look back in time...
 
 #What's the default resolution for this sample...in other words how far back am I looking in the data available?
-#The default resolution on storage objects like volumes is 30 seconds window starting when the cmdlet is run
+#The default resolution on storage objects like Volumes is 30 seconds window starting when the cmdlet is run
 Get-Pfa2VolumePerformance -Array $FlashArray -Sort 'reads_per_sec-' -Limit 10 | 
     Select-Object Name, Time, ReadsPerSec, BytesPerRead
 
 
 #Let's look at 48 hours ago over a one day window
 #In PowerShell 7 you can use Get-Date -AsUTC, In PowerShell 5.1 you can use (Get-Date).ToUniversalTime()
-$Today = Get-Date -AsUTC
 $Today = (Get-Date).ToUniversalTime()
 $EndTime = $Today.AddDays(-2)
 $StartTime = $Today.AddDays(-3)
+
 
 #Let's find the to 10 highest read volumes 2 days ago. 1800000 is 30 minutes
 Get-Pfa2VolumePerformance -Array $FlashArray -Sort 'reads_per_sec-' -Limit 10 -StartTime $StartTime -EndTime $EndTime -resolution 1800000 |
@@ -130,35 +140,46 @@ Get-Pfa2VolumePerformance -Array $FlashArray -Sort 'reads_per_sec-' -Limit 10 -S
 
 
 #Let's find the to 10 highest read volumes 2 days ago, where they have the string aen in the name.
-Get-Pfa2VolumePerformance -Array $FlashArray -Filter "name='*aen-sql-22-a*'" -Sort 'reads_per_sec-' -Limit 10 -StartTime $StartTime -EndTime $EndTime -resolution 1800000 | 
+Get-Pfa2VolumePerformance -Array $FlashArray -Limit 10 -StartTime $StartTime -EndTime $EndTime -resolution 1800000 -Filter "name='*aen-sql-22-a*'" -Sort 'reads_per_sec-'  | 
     Sort-Object ReadsPerSec -Descending |
     Select-Object Name, Time, ReadsPerSec
 
 
-#Take aways
-# 1. You can easily find volume level performance information via PowerShell and also our API.
-# 2. Continue to use the filtering, sorting and limiting techniques discussed.
-# 3. Its not just Volumes, you can do this for other objects too, Hosts, HostGroups, Pods, Directories, and the Array as a whole
+#######################################################################################################################################
+###Key take aways: 
+#   1. You can easily find volume level performance information via PowerShell and also our API.
+#   2. Continue to use the filtering, sorting and limiting techniques discussed.
+#   3. Its not just Volumes, you can do this for other objects too, Hosts, HostGroups, Pods, Directories, and the Array as a whole
+#######################################################################################################################################
 
 
-
-#Categorize, search and manage your FlashArray resources efficiently
+#######################################################################################################################################
+###Demo 3 - Categorize, search and manage your FlashArray resources efficiently
+#######################################################################################################################################
 #Group a set of volumes with tags and get and performance metrics based on those tags
-#https://support.purestorage.com/?title=FlashArray/PurityFA/PurityFA_General_Administration/Tags_in_Purity_6.0_-_User%27s_Guide
+# * https://support.purestorage.com/?title=FlashArray/PurityFA/PurityFA_General_Administration/Tags_in_Purity_6.0_-_User%27s_Guide
+# * https://www.nocentino.com/posts/2023-01-25-using-flasharray-tags-powershell/ 
 Get-Pfa2Volume -Array $FlashArray -Filter "name='*aen-sql-22*'" | 
     Select-Object Name 
 
 
-#Let's get a set of volumes using our filtering technique
+#Let's get two sets of volumes using our filtering technique
 $VolumesSqlA = Get-Pfa2Volume -Array $FlashArray -Filter "name='*aen-sql-22-a*'" | 
     Select-Object Name -ExpandProperty Name
 
 $VolumesSqlB = Get-Pfa2Volume -Array $FlashArray -Filter "name='*aen-sql-22-b*'" | 
     Select-Object Name -ExpandProperty Name
 
+
+#Output those to veridy the data is what we want.
 $VolumesSqlA 
 $VolumesSqlB
 
+
+#Now, let's define some parameters for our Tags, their keys, values and namespace.
+# A namespace is like a folder, a way to classify a subset of tags. 
+# A tag is a key/value pair that can be attached to an object in FlashArray, like a volume or a snapshot. 
+# Using tags enables you to attach additional metadata to objects for classification, sorting, and searching.
 $TagNamespace = 'AnthonyNamespace'
 $TagKey = 'SqlInstance'
 $TagValueSqlA = 'aen-sql-22-a'
@@ -171,36 +192,44 @@ Set-Pfa2VolumeTagBatch -Array $FlashArray -TagNamespace $TagNamespace -ResourceN
 
 
 #Let's get all the volumes that have the Key = SqlInstance...or in other words all the volumes associated with SQL Servers in our environment
-Get-Pfa2VolumeTag -Array $FlashArray -Namespaces $TagNamespace -Filter "Key='SqlInstance'" 
+$SqlVolumes = Get-Pfa2VolumeTag -Array $FlashArray -Namespaces $TagNamespace -Filter "Key='SqlInstance'" 
+$SqlVolumes
 
 
+#Now, let's perform an operation on each of the volumes that are in our set of volumes.
+# We'll use Id since it can take an Array/List. 
+# Name generally only takes a single value, some cmdlets take an Array/List for the Id. 
+# So we'll use that parameter here to operate on the set of data in SqlVolumes.
+Get-Pfa2VolumeSpace -Array $FlashArray -Id $SqlVolumes.Resource.Id 
 
-#Now, let's perform an operation on each of the volumes that are in our set of volumes
+
+#Similarly on performance cmdlets
+Get-Pfa2VolumePerformance -Array $FlashArray -Id $SqlVolumes.Resource.Id
+
+
 #Here FilterString is a comma seperated list of all of the Volumes in the variable $SqlVolumes.
 #In the format "name=('vol1,'vol2','vol3')" which is the proper Filter String format for the FlashArray API, including the single quotes on each list element.
 $FilterString = "name=('$($SqlVolumes.Resource.Name -join "','")')"
 Get-Pfa2VolumeSpace -Array $FlashArray -Filter $FilterString -Verbose
 
 
-#We really don't want to do this on the client side since each of these is a seperate API call. 
-foreach ($SqlVolume in $SqlVolumes){
-    Get-Pfa2VolumeSpace -Array $FlashArray -Name $SqlVolume.Resource.Name -Verbose
-}
-
 #And when we're done, we can clean up our tags
 Remove-Pfa2VolumeTag -Array $FlashArray -Namespaces $TagNamespace -Keys $TagKey -ResourceNames $VolumesSqlA
 Remove-Pfa2VolumeTag -Array $FlashArray -Namespaces $TagNamespace -Keys $TagKey -ResourceNames $VolumesSqlB
 
 
-###Key take aways
-### 1. You can classify objects in the array to give your integrations more information about
-###    what's in the object...things like volumes and snapshots
-### 2. What can you do with tags? Execute operations on sets of data, volumes, snapshots, clones, accounting, performance monitoring
+#######################################################################################################################################
+###Key take aways: 
+#   1. You can classify objects in the array to give your integrations more information about
+#      what's in the object...things like volumes and snapshots
+#   2. What can you do with tags? Execute operations on sets of data, volumes, snapshots, clones, accounting, performance monitoring
+#######################################################################################################################################
 
 
-#Streamline snapshot management with powerful API-driven techniques
-
-
+#######################################################################################################################################
+###Demo 4 - Streamline snapshot management with powerful API-driven techniques
+#######################################################################################################################################
+# * https://support.purestorage.com/Solutions/Microsoft_Platform_Guide/a_Windows_PowerShell/How-To%3A_Working_with_Snapshots_and_the_Powershell_SDK_v2#Volume_Snapshots_2
 #Let's look at the members available to us on the Volume Snapshot object
 #This can take a minute
 Get-Pfa2VolumeSnapshot -Array $FlashArray | Get-Member
@@ -230,10 +259,20 @@ Get-Pfa2ProtectionGroupSnapshot -Array $FlashArray -Filter "created<'$StringDate
 #Remove-Pfa2VolumeSnapshot
 #Remove-Pfa2ProtectionGroupSnapshot
 
-#Setup and deploy the OpenMetrics Exporter, enabling you to collect and analyze data from your Pure Storage arrays
-#https://github.com/PureStorage-OpenConnect/pure-fa-openmetrics-exporter
-#https://www.nocentino.com/posts/2022-12-20-monitoring-flasharray-with-openmetrics/
+
+
+#######################################################################################################################################
+###Demo 4 - Setup and deploy the OpenMetrics Exporter, enabling you to collect and analyze data from your Pure Storage arrays
+#######################################################################################################################################
+# * Offical Repository - https://github.com/PureStorage-OpenConnect/pure-fa-openmetrics-exporter
+# * Blog Post -  https://www.nocentino.com/posts/2022-12-20-monitoring-flasharray-with-openmetrics/
 Set-Location ~/Documents/GitHub/pure-fa-openmetrics-exporter/examples/config/docker
 docker compose up --detach
 http://localhost:3000
 docker compose down 
+
+
+#######################################################################################################################################
+###Key take away: 
+#   1. Leverage our API to give you cross-domain insight into your systems, applications and platforms.
+#######################################################################################################################################
