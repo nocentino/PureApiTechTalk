@@ -14,6 +14,7 @@ Get-Command -Module PureStoragePowerShellSDK2
 
 
 #Let's look at the cmdlets that have performance in the name to see what's available to us to work with
+Get-Command -Module PureStoragePowerShellSDK2 | Where-Object { $_.Name -like "*volume*" } 
 Get-Command -Module PureStoragePowerShellSDK2 | Where-Object { $_.Name -like "*performance" } 
 
 
@@ -68,7 +69,7 @@ Get-Pfa2Volume -Array $FlashArray | Where-Object { $_.Name -like "*aen*" }
 
 
 #Now, let's push that into the array and sort in the API and use a filter to limit the amount of data returned to the client
-Get-Pfa2Volume -Array $FlashArray -Filter "name='*aen*'" 
+Get-Pfa2Volume -Array $FlashArray -Filter "name='*aen*'"
 
 
 Measure-Command {
@@ -160,9 +161,6 @@ Get-Pfa2VolumePerformance -Array $FlashArray -Limit 10 -StartTime $StartTime -En
 #Group a set of volumes with tags and get and performance metrics based on those tags
 # * https://support.purestorage.com/?title=FlashArray/PurityFA/PurityFA_General_Administration/Tags_in_Purity_6.0_-_User%27s_Guide
 # * https://www.nocentino.com/posts/2023-01-25-using-flasharray-tags-powershell/ 
-Get-Pfa2Volume -Array $FlashArray -Filter "name='*aen-sql-22*'" | 
-    Select-Object Name 
-
 
 #Let's get two sets of volumes using our filtering technique
 $VolumesSqlA = Get-Pfa2Volume -Array $FlashArray -Filter "name='*aen-sql-22-a*'" | 
@@ -204,14 +202,8 @@ $SqlVolumes
 Get-Pfa2VolumeSpace -Array $FlashArray -Id $SqlVolumes.Resource.Id 
 
 
-#Similarly on performance cmdlets
-Get-Pfa2VolumePerformance -Array $FlashArray -Id $SqlVolumes.Resource.Id
-
-
-#Here FilterString is a comma seperated list of all of the Volumes in the variable $SqlVolumes.
-#In the format "name=('vol1,'vol2','vol3')" which is the proper Filter String format for the FlashArray API, including the single quotes on each list element.
-$FilterString = "name=('$($SqlVolumes.Resource.Name -join "','")')"
-Get-Pfa2VolumeSpace -Array $FlashArray -Filter $FilterString -Verbose
+#Similarly on performance cmdlets..remember this is still REST, let's look at the verbose output
+Get-Pfa2VolumePerformance -Array $FlashArray -Id $SqlVolumes.Resource.Id -Verbose
 
 
 #And when we're done, we can clean up our tags
@@ -222,7 +214,7 @@ Remove-Pfa2VolumeTag -Array $FlashArray -Namespaces $TagNamespace -Keys $TagKey 
 #######################################################################################################################################
 #  Key take aways: 
 #   1. You can classify objects in the array to give your integrations more information about
-#      what's in the object...things like volumes and snapshots
+#      what's in the object...things like volumes and snapshots and the applications and systems the objects are supporting
 #   2. What can you do with tags? Execute operations on sets of data, volumes, snapshots, clones, accounting, performance monitoring
 #######################################################################################################################################
 
@@ -245,14 +237,12 @@ $StringDate = Get-Date -Date $Created -Format "yyy-MM-ddTHH:mm:ssZ"
 
 #There's likely lots of snapshots, so let's use array side filtering to 
 #limit the set of objects and find snapshots older than a month on our array
-Get-Pfa2VolumeSnapshot -Array $FlashArray -Filter "created<'$StringDate'" |
-    Sort-Object -Property Created | 
+Get-Pfa2VolumeSnapshot -Array $FlashArray -Filter "created<'$StringDate'" -Sort "created" |
     Select-Object Name, Created
 
 
 #Similarly we can do this for protection groups 
-Get-Pfa2ProtectionGroupSnapshot -Array $FlashArray -Filter "created<'$StringDate'" | 
-    Sort-Object -Property Created | 
+Get-Pfa2ProtectionGroupSnapshot -Array $FlashArray -Filter "created<'$StringDate'" -Sort "created" |
     Select-Object Name, Created
 
 
@@ -271,7 +261,7 @@ Set-Location ~/Documents/GitHub/pure-fa-openmetrics-exporter/examples/config/doc
 docker compose up --detach
 http://localhost:3000
 docker compose down 
-
+Set-Location ~
 
 #######################################################################################################################################
 #  Key take away: 
