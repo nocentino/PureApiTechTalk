@@ -14,7 +14,7 @@ Get-Command -Module PureStoragePowerShellSDK2
 
 
 #Let's look at the cmdlets that have performance in the name to see what's available to us to work with
-Get-Command -Module PureStoragePowerShellSDK2 | Where-Object { $_.Name -like "*volume*" } 
+Get-Command -Module PureStoragePowerShellSDK2 | Where-Object { $_.Name -like "*array*" } 
 Get-Command -Module PureStoragePowerShellSDK2 | Where-Object { $_.Name -like "*performance" } 
 
 
@@ -65,20 +65,24 @@ Measure-Command {
 
 
 #Let's use filtering on a listing of volumes...first with PowerShell
-Get-Pfa2Volume -Array $FlashArray | Where-Object { $_.Name -like "*aen*" } 
+Get-Pfa2Volume -Array $FlashArray | Where-Object { $_.Name -like "*aen-sql-22*" } | 
+    Select-Object Name
 
 
 #Now, let's push that into the array and sort in the API and use a filter to limit the amount of data returned to the client
-Get-Pfa2Volume -Array $FlashArray -Filter "name='*aen*'"
+Get-Pfa2Volume -Array $FlashArray -Filter "name='*aen-sql-22*'" | 
+    Select-Object Name
 
 
 Measure-Command {
-    Get-Pfa2Volume -Array $FlashArray | Where-Object { $_.Name -like "*aen*" }
+    Get-Pfa2Volume -Array $FlashArray | Where-Object { $_.Name -like "*aen-sql-22*" } | 
+    Select-Object Name
 } | Select-Object TotalMilliseconds
 
 
 Measure-Command {
-    Get-Pfa2Volume -Array $FlashArray -Filter "name='*aen*'" 
+    Get-Pfa2Volume -Array $FlashArray -Filter "name='*aen-sql-22*'" | 
+    Select-Object Name
 } | Select-Object TotalMilliseconds
 
 #######################################################################################################################################
@@ -199,11 +203,14 @@ $SqlVolumes
 # We'll use Id since it can take an Array/List. 
 # Name generally only takes a single value, some cmdlets take an Array/List for the Id. 
 # So we'll use that parameter here to operate on the set of data in SqlVolumes.
-Get-Pfa2VolumeSpace -Array $FlashArray -Id $SqlVolumes.Resource.Id 
-
+Get-Pfa2VolumeSpace -Array $FlashArray -Id $SqlVolumes.Resource.Id | 
+    Select-Object Name -ExpandProperty Space | 
+    Format-Table
 
 #Similarly on performance cmdlets..remember this is still REST, let's look at the verbose output
-Get-Pfa2VolumePerformance -Array $FlashArray -Id $SqlVolumes.Resource.Id -Verbose
+Get-Pfa2VolumePerformance -Array $FlashArray -Id $SqlVolumes.Resource.Id -Verbose |
+    Select-Object Name, BytesPerRead, BytesPerWrite, ReadBytesPerSec, ReadsPerSec, WriteBytesPerSec, WritesPerSec, UsecPerReadOp, UsecPerWriteOp | 
+    Format-Table
 
 
 #And when we're done, we can clean up our tags
