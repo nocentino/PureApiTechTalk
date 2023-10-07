@@ -151,6 +151,16 @@ Get-Pfa2VolumePerformance -Array $FlashArray -Limit 10 -StartTime $StartTime -En
     Select-Object Name, Time, ReadsPerSec
 
 
+
+Get-Pfa2HostPerformance -Array $FlashArray | Get-Member
+
+Get-Pfa2HostPerformance -Array $FlashArray -Sort 'reads_per_sec-' -Limit 10 -StartTime $StartTime -EndTime $EndTime -resolution 1800000 | 
+    Select-Object Name, Time, ReadsPerSec, BytesPerRead
+
+Get-Pfa2HostPerformance -Array $FlashArray -Sort 'writes_per_sec-' -Limit 10 -StartTime $StartTime -EndTime $EndTime -resolution 1800000 | 
+    Select-Object Name, Time, ReadsPerSec, WritesPerSec
+
+
 #######################################################################################################################################
 #  Key take aways: 
 #   1. You can easily find volume level performance information via PowerShell and also our API.
@@ -256,7 +266,6 @@ Get-Pfa2ProtectionGroupSnapshot -Array $FlashArray -Filter "created<'$StringDate
 #You can remove snapshots with these cmdlets
 #Remove-Pfa2VolumeSnapshot
 #Remove-Pfa2ProtectionGroupSnapshot
-
 
 
 #######################################################################################################################################
