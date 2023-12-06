@@ -141,12 +141,15 @@ $StartTime = $Today.AddDays(-3)
 
 
 #Let's find the to 10 highest read volumes 2 days ago. 1800000 is 30 minutes
-Get-Pfa2VolumePerformance -Array $FlashArray -Sort 'reads_per_sec-' -Limit 10 -StartTime $StartTime -EndTime $EndTime -resolution 1800000 |
+Get-Pfa2VolumePerformance -Array $FlashArray -Sort 'reads_per_sec-' -Limit 10 `
+    -StartTime $StartTime -EndTime $EndTime -resolution 1800000 |
     Select-Object Name, Time, ReadsPerSec
 
 
 #Let's find the to 10 highest read volumes 2 days ago, where they have the string aen in the name.
-Get-Pfa2VolumePerformance -Array $FlashArray -Limit 10 -StartTime $StartTime -EndTime $EndTime -resolution 1800000 -Filter "name='*aen-sql-22-a*'" -Sort 'reads_per_sec-'  | 
+Get-Pfa2VolumePerformance -Array $FlashArray -Limit 10 `
+    -StartTime $StartTime -EndTime $EndTime -resolution 1800000 `
+    -Filter "name='*aen-sql-22-a*'" -Sort 'reads_per_sec-'  | 
     Sort-Object ReadsPerSec -Descending |
     Select-Object Name, Time, ReadsPerSec
 
@@ -154,10 +157,12 @@ Get-Pfa2VolumePerformance -Array $FlashArray -Limit 10 -StartTime $StartTime -En
 
 Get-Pfa2HostPerformance -Array $FlashArray | Get-Member
 
-Get-Pfa2HostPerformance -Array $FlashArray -Sort 'reads_per_sec-' -Limit 10 -StartTime $StartTime -EndTime $EndTime -resolution 1800000 | 
+Get-Pfa2HostPerformance -Array $FlashArray -Sort 'reads_per_sec-' -Limit 10 `
+    -StartTime $StartTime -EndTime $EndTime -resolution 1800000 | 
     Select-Object Name, Time, ReadsPerSec, BytesPerRead
 
-Get-Pfa2HostPerformance -Array $FlashArray -Sort 'writes_per_sec-' -Limit 10 -StartTime $StartTime -EndTime $EndTime -resolution 1800000 | 
+Get-Pfa2HostPerformance -Array $FlashArray -Sort 'writes_per_sec-' -Limit 10 `
+    -StartTime $StartTime -EndTime $EndTime -resolution 1800000 | 
     Select-Object Name, Time, ReadsPerSec, WritesPerSec
 
 
@@ -177,10 +182,10 @@ Get-Pfa2HostPerformance -Array $FlashArray -Sort 'writes_per_sec-' -Limit 10 -St
 # * https://www.nocentino.com/posts/2023-01-25-using-flasharray-tags-powershell/ 
 
 #Let's get two sets of volumes using our filtering technique
-$VolumesSqlA = Get-Pfa2Volume -Array $FlashArray -Filter "name='*aen-sql-22-a*'" | 
+$VolumesSqlA = Get-Pfa2Volume -Array $FlashArray -Filter "name='*vvol-aen-sql-22-a*'" | 
     Select-Object Name -ExpandProperty Name
 
-$VolumesSqlB = Get-Pfa2Volume -Array $FlashArray -Filter "name='*aen-sql-22-b*'" | 
+$VolumesSqlB = Get-Pfa2Volume -Array $FlashArray -Filter "name='*vvol-aen-sql-22-b*'" | 
     Select-Object Name -ExpandProperty Name
 
 
@@ -213,9 +218,10 @@ $SqlVolumes
 # We'll use Id since it can take an Array/List. 
 # Name generally only takes a single value, some cmdlets take an Array/List for the Id. 
 # So we'll use that parameter here to operate on the set of data in SqlVolumes.
-Get-Pfa2VolumeSpace -Array $FlashArray -Id $SqlVolumes.Resource.Id | 
+Get-Pfa2VolumeSpace -Array $FlashArray -Id $SqlVolumes.Resource.Id -Sort "space.data_reduction" | 
     Select-Object Name -ExpandProperty Space | 
     Format-Table
+
 
 #Similarly on performance cmdlets..remember this is still REST, let's look at the verbose output
 Get-Pfa2VolumePerformance -Array $FlashArray -Id $SqlVolumes.Resource.Id -Verbose |
@@ -242,7 +248,7 @@ Remove-Pfa2VolumeTag -Array $FlashArray -Namespaces $TagNamespace -Keys $TagKey 
 # * https://support.purestorage.com/Solutions/Microsoft_Platform_Guide/a_Windows_PowerShell/How-To%3A_Working_with_Snapshots_and_the_Powershell_SDK_v2#Volume_Snapshots_2
 #Let's look at the members available to us on the Volume Snapshot object
 #This can take a minute
-Get-Pfa2VolumeSnapshot -Array $FlashArray | Get-Member
+Get-Pfa2VolumeSnapshot -Array $FlashArray -Limit 1 | Get-Member
 
 
 #Find snapshots that are older than a specific date, we need to put the date into a format the API understands
@@ -263,9 +269,21 @@ Get-Pfa2ProtectionGroupSnapshot -Array $FlashArray -Filter "created<'$StringDate
     Select-Object Name, Created
 
 
+
+$Snapshot = New-Pfa2VolumeSnapshot -Array $FlashArray -SourceNames 'vvol-aen-sql-22-a-1-3d9acfdd-vg/Data-47094663' -Suffix "ScottIsAwesome"
+$Snapshot
+Get-Pfa2VolumeSnapshot -Array $FlashArray -Filter "suffix='ScottIsAwesome"
+
 #You can remove snapshots with these cmdlets
 #Remove-Pfa2VolumeSnapshot
 #Remove-Pfa2ProtectionGroupSnapshot
+
+
+#Top 10 volumes sorted by worst DRR
+$DRR = 4.0
+Get-Pfa2VolumeSpace -Array $FlashArray -Filter "space.data_reduction<='$DRR'" -Sort "space.data_reduction"
+
+
 
 
 #######################################################################################################################################
