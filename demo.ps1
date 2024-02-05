@@ -4,7 +4,7 @@ Import-Module PureStoragePowerShellSDK2
 
 #Connect to our FlashArray
 $Credential = Get-Credential -UserName "anocentino" -Message 'Enter your credential information...'
-$FlashArray = Connect-Pfa2Array –EndPoint sn1-m70-f06-33.puretec.purestorage.com -Credential $Credential -IgnoreCertificateError
+$FlashArray = Connect-Pfa2Array –EndPoint sn1-x90r2-f06-33.puretec.purestorage.com -Credential $Credential -IgnoreCertificateError
 
 
 #######################################################################################################################################
@@ -70,7 +70,7 @@ Get-Pfa2Volume -Array $FlashArray | Where-Object { $_.Name -like "*aen-sql-22*" 
 
 
 #Now, let's push that into the array and sort in the API and use a filter to limit the amount of data returned to the client
-Get-Pfa2Volume -Array $FlashArray -Filter "name='*aen-sql-22*'" | 
+Get-Pfa2Volume -Array $FlashArray -Filter "name='*aen-sql-22*'" -Verbose | 
     Select-Object Name
 
 
@@ -246,9 +246,24 @@ Remove-Pfa2VolumeTag -Array $FlashArray -Namespaces $TagNamespace -Keys $TagKey 
 ###Demo 4 - Streamline snapshot management with powerful API-driven techniques
 #######################################################################################################################################
 # * https://support.purestorage.com/Solutions/Microsoft_Platform_Guide/a_Windows_PowerShell/How-To%3A_Working_with_Snapshots_and_the_Powershell_SDK_v2#Volume_Snapshots_2
-#Let's look at the members available to us on the Volume Snapshot object
-#This can take a minute
-Get-Pfa2VolumeSnapshot -Array $FlashArray -Limit 1 | Get-Member
+
+#Let's take a Protection Group Snapshot
+$PgSnapshot = New-Pfa2ProtectionGroupSnapshot -Array $FlashArray -SourceNames 'aen-sql-22-a-pg' 
+$PgSnapshot
+
+
+#Let's take a look at ProtectionGroupSnapshot object model
+$PgSnapshot | Get-Member
+
+
+# Using a snapshot suffix, take a PG Snapshot with a suffix
+$PgSnapshot = New-Pfa2ProtectionGroupSnapshot -Array $FlashArray -SourceNames 'aen-sql-22-a-pg' -Suffix "DWCheckpoint1"
+$PgSnapshot
+
+
+# Get a PG Snapshot by suffix
+Get-Pfa2ProtectionGroupSnapshot -Array $FlashArray -SourceNames 'aen-sql-22-a-pg' -Filter "suffix='DWCheckpoint1'" 
+
 
 
 #Find snapshots that are older than a specific date, we need to put the date into a format the API understands
@@ -269,14 +284,23 @@ Get-Pfa2ProtectionGroupSnapshot -Array $FlashArray -Filter "created<'$StringDate
     Select-Object Name, Created
 
 
-
-$Snapshot = New-Pfa2VolumeSnapshot -Array $FlashArray -SourceNames 'vvol-aen-sql-22-a-1-3d9acfdd-vg/Data-47094663' -Suffix "ScottIsAwesome"
-$Snapshot
-Get-Pfa2VolumeSnapshot -Array $FlashArray -Filter "suffix='ScottIsAwesome"
+#Let's get a listing of PG snapshots older than 30 days    
+$PgSnapshots = Get-Pfa2ProtectionGroupSnapshot -Array $FlashArray -SourceName 'aen-sql-22-a-pg' 
+$PgSnapshots.Id
 
 #You can remove snapshots with these cmdlets
-#Remove-Pfa2VolumeSnapshot
-#Remove-Pfa2ProtectionGroupSnapshot
+Remove-Pfa2VolumeSnapshot -Array $FlashArray -Id $PgSnapshots
+
+
+#We can remove as snapshot, but this places it in the eradication bucket rather than deleting it straigh away
+Remove-Pfa2ProtectionGroupSnapshot -Array $FlashArray -Name 'aen-sql-22-a-pg.DWCheckpoint1' 
+
+
+#If you want to delete the snapshot right now, you can add the Eradicate parameter
+Remove-Pfa2ProtectionGroupSnapshot -Array $FlashArray -Name 'aen-sql-22-a-pg.DWCheckpoint1' -Eradicate -WhatIf
+
+
+
 
 
 #Top 10 volumes sorted by worst DRR
