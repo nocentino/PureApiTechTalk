@@ -136,8 +136,8 @@ Get-Pfa2VolumePerformance -Array $FlashArray -Sort 'reads_per_sec-' -Limit 10 |
 #Let's look at 48 hours ago over a one day window
 #In PowerShell 7 you can use Get-Date -AsUTC, In PowerShell 5.1 you can use (Get-Date).ToUniversalTime()
 $Today = (Get-Date).ToUniversalTime()
-$EndTime = $Today.AddDays(-2)
 $StartTime = $Today.AddDays(-3)
+$EndTime = $Today.AddDays(-2)
 
 
 #Let's find the to 10 highest read volumes 2 days ago. 1800000 is 30 minutes
