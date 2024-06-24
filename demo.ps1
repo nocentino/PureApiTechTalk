@@ -3,40 +3,37 @@ Import-Module PureStoragePowerShellSDK2
 
 
 # Connect to our FlashArray
-$Credential = Get-Credential -UserName "anocentino" -Message 'Enter your credential information...'
+$Credential = Import-CliXml -Path "$HOME\FA_Cred.xml"
 
 
 # Connect to the FlashArray, negotiate highest supported API version on the arrray.
-Connect-Pfa2Array -EndPoint sn1-x90r2-f06-33.puretec.purestorage.com -Credential $Credential -IgnoreCertificateError -Verbose
+Connect-Pfa2Array -EndPoint sn1-x90r2-f06-33.puretec.purestorage.com `
+    -Credential $Credential -IgnoreCertificateError -Verbose # -ApiVersion 2.27
 
 
 
 # Connect and create a variable for reference
-$FlashArray = Connect-Pfa2Array -EndPoint sn1-x90r2-f06-33.puretec.purestorage.com -Credential $Credential -IgnoreCertificateError 
-
-
+$FlashArray = Connect-Pfa2Array -EndPoint sn1-x90r2-f06-33.puretec.purestorage.com `
+     -Credential $Credential -IgnoreCertificateError 
 
 #######################################################################################################################################
 ###Demo 1: Connecting to your FlashArray API and using sort, limit and filter to scope your API calls to the information that you want
 #######################################################################################################################################
 # We can interact with the REST API directly with Invoke-Pfa2RestCommand...
 # We need to authenticate, locate on the network, pass in a method and a resource we want to interact with
-Invoke-Pfa2RestCommand -Array $FlashArray -Method GET -RelativeUri '/api/api_version'
+Invoke-Pfa2RestCommand -Array $FlashArray -Method GET -RelativeUri '/api/api_version' -Verbose
 Invoke-Pfa2RestCommand -Array $FlashArray -Method GET -RelativeUri 'volumes'
 
 
-# We can also specify objects by name my modifying the Uri
-Invoke-Pfa2RestCommand -Array $FlashArray -Method GET -RelativeUri 'volumes?names=vvol-aen-sql-22-a-1-3d9acfdd-vg%2fData-47094663' | ConvertFrom-Json
-
-#Use Invoke-Pfa2RestCommand to get a listing of snapshots on the array
-Invoke-Pfa2RestCommand -Array $FlashArray -Method GET -RelativeUri 'snapshot' | ConvertFrom-Json
 
 # Under the hood, the PowerShell module is using the REST API to communicate to the array, 
 # 1. Request hits the API endpoint, the reply comes back in JSON which is formatted on the client side
-Get-Pfa2Volume -Array $FlashArray -Name 'vvol-aen-sql-22-a-1-3d9acfdd-vg/Data-47094663' -Verbose 
+Invoke-Pfa2RestCommand -Array $FlashArray `
+    -Method GET -RelativeUri 'volumes?names=vvol-aen-sql-22-a-1-3d9acfdd-vg%2fData-47094663' | 
+    ConvertFrom-Json
 
 
-Get-Command -Module PureStoragePowerShellSDK2
+
 
 
 
@@ -106,21 +103,10 @@ Get-Pfa2Volume -Array $FlashArray | Where-Object { $_.Name -like "*aen-sql-22*" 
 Get-Pfa2Volume -Array $FlashArray -Filter "name='*aen-sql-22*'" -Verbose | 
     Select-Object Name
 
-
-Measure-Command {
-    Get-Pfa2Volume -Array $FlashArray | Where-Object { $_.Name -like "*aen-sql-22*" } | 
-    Select-Object Name
-} | Select-Object TotalMilliseconds
-
-
-Measure-Command {
-    Get-Pfa2Volume -Array $FlashArray -Filter "name='*aen-sql-22*'" | 
-    Select-Object Name
-} | Select-Object TotalMilliseconds
-
 #######################################################################################################################################
 #  Key take away: 
-#    Use sort, limit and filter to scope your API calls to what you want to get. Will significantly increase performance
+#    Use sort, limit and filter to scope your API calls to what you want to get. 
+#    Will significantly increase performance
 #######################################################################################################################################
 
 
@@ -147,7 +133,7 @@ Get-Pfa2VolumePerformance -Array $FlashArray | Get-Member
 # ReadsPerSec is that PowerShell property, reads_per_sec is the array API response property. 
 # Notice the underscores are removed from the PowerShell propery and the API response property is lower case and is case sensitive.
 #. Sorting defaults to ascending, add a - to sort descending
-Get-Pfa2VolumePerformance -Array $FlashArray -Sort 'reads_per_sec-' -Limit 10 -verbose | 
+Get-Pfa2VolumePerformance -Array $FlashArray -Sort 'reads_per_sec-' -Limit 10 | 
     Select-Object Name, Time, ReadsPerSec, BytesPerRead
 
 
@@ -198,12 +184,6 @@ Get-Pfa2HostPerformance -Array $FlashArray -Sort 'reads_per_sec-' -Limit 10 `
     Select-Object Name, Time, ReadsPerSec, BytesPerRead
 
 
-Get-Pfa2HostPerformance -Array $FlashArray -Sort 'writes_per_sec-' -Limit 10 `
-    -StartTime $StartTime -EndTime $EndTime -resolution 1800000 | 
-    Select-Object Name, Time, ReadsPerSec, WritesPerSec
-
-
-
 #######################################################################################################################################
 #  Key take aways: 
 #   1. You can easily find volume level performance information via PowerShell and also our API.
@@ -252,7 +232,8 @@ Set-Pfa2VolumeTagBatch -Array $FlashArray -TagNamespace $TagNamespace -ResourceN
 
 
 #Let's get all the volumes that have the Key = SqlInstance...or in other words all the volumes associated with SQL Servers in our environment
-$SqlVolumes = Get-Pfa2VolumeTag -Array $FlashArray -Namespaces $TagNamespace -Filter "Key='SqlInstance'" -verbose
+$SqlVolumes = Get-Pfa2VolumeTag -Array $FlashArray `
+    -Namespaces $TagNamespace -Filter "Key='SqlInstance'" 
 $SqlVolumes
 
 
@@ -263,17 +244,19 @@ $SqlVolumes
 # So we'll use that parameter here to operate on the set of data in SqlVolumes.
 $SqlVolumes.Resource.Id
 
-Get-Pfa2VolumeSpace -Array $FlashArray -Id $SqlVolumes.Resource.Id -Sort "space.data_reduction" | 
-    Select-Object Name -ExpandProperty Space | 
-    Format-Table
+#Top 10 volumes sorted by worst DRR
+$DRR = 4.0
+Get-Pfa2VolumeSpace -Array $FlashArray -Id $SqlVolumes.Resource.Id `
+     -Filter "space.data_reduction<='$DRR'" -Sort "space.data_reduction" |
+     Select-Object Name -ExpandProperty Space |
+     Select-Object Name, DataReduction
 
 
 
-# Similarly on performance cmdlets..remember this is still REST, let's look at the verbose output
-Get-Pfa2VolumePerformance -Array $FlashArray -Id $SqlVolumes.Resource.Id -Verbose |
+# Similarly on performance cmdlets..remember this is still REST
+Get-Pfa2VolumePerformance -Array $FlashArray -Id $SqlVolumes.Resource.Id  -Sort 'reads_per_sec-'  |
     Select-Object Name, BytesPerRead, BytesPerWrite, ReadBytesPerSec, ReadsPerSec, WriteBytesPerSec, WritesPerSec, UsecPerReadOp, UsecPerWriteOp | 
     Format-Table
-
 
 
 # And when we're done, we can clean up our tags
@@ -306,14 +289,15 @@ $PgSnapshot | Get-Member
 
 
 # Using a snapshot suffix, take a PG Snapshot with a suffix
-$PgSnapshot = New-Pfa2ProtectionGroupSnapshot -Array $FlashArray -SourceNames 'aen-sql-22-a-pg' -Suffix "DWCheckpoint1"
+$PgSnapshot = New-Pfa2ProtectionGroupSnapshot `
+    -Array $FlashArray -SourceNames 'aen-sql-22-a-pg' -Suffix "DWCheckpoint1"
 $PgSnapshot
 
 
 
 # Get a PG Snapshot by suffix
-Get-Pfa2ProtectionGroupSnapshot -Array $FlashArray | Where-Object { $_.Suffix -eq 'DWCheckpoint1'}
-Get-Pfa2ProtectionGroupSnapshot -Array $FlashArray -SourceNames 'aen-sql-22-a-pg' -Filter "suffix='DWCheckpoint1'" 
+Get-Pfa2ProtectionGroupSnapshot -Array $FlashArray `
+    -SourceNames 'aen-sql-22-a-pg' -Filter "suffix='DWCheckpoint1'" 
 
 
 
@@ -355,17 +339,8 @@ Remove-Pfa2ProtectionGroupSnapshot -Array $FlashArray -Name 'aen-sql-22-a-pg.DWC
 
 
 #If you want to delete the snapshot right now, you can add the Eradicate parameter
-Remove-Pfa2ProtectionGroupSnapshot -Array $FlashArray -Name 'aen-sql-22-a-pg.DWCheckpoint1' -Eradicate -whatif
-
-
-
-
-
-#Top 10 volumes sorted by worst DRR
-$DRR = 4.0
-Get-Pfa2VolumeSpace -Array $FlashArray -Filter "space.data_reduction<='$DRR'" -Sort "space.data_reduction"
-
-
+Remove-Pfa2ProtectionGroupSnapshot -Array $FlashArray `
+    -Name 'aen-sql-22-a-pg.DWCheckpoint1' -Eradicate 
 
 
 #######################################################################################################################################
